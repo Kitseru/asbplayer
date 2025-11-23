@@ -47,6 +47,7 @@ import {
     VideoDisappearedMessage,
     VideoHeartbeatMessage,
     VideoToExtensionCommand,
+    WebsocketClientEventMessage,
 } from '@project/common';
 import Mp3Encoder from '@project/common/audio-clip/mp3-encoder';
 import { adjacentSubtitle } from '@project/common/key-binder';
@@ -657,6 +658,12 @@ export default class Binding {
                     case 'offset':
                         const offsetMessage = request.message as OffsetToVideoMessage;
                         this.subtitleController.offset(offsetMessage.value, !offsetMessage.echo);
+                        break;
+                    case 'offset-subtitles-to-next-timestamp':
+                        this.subtitleController.offsetToNextSubtitle();
+                        break;
+                    case 'offset-subtitles-to-previous-timestamp':
+                        this.subtitleController.offsetToPreviousSubtitle();
                         break;
                     case 'playbackRate':
                         const playbackRateMessage = request.message as PlaybackRateToVideoMessage;
@@ -1405,6 +1412,19 @@ export default class Binding {
                 );
                 // If target asbplayer is not specified, then sync with any already-synced asbplayer
                 // Otherwise, sync with the target asbplayer
+
+
+                const command: VideoToExtensionCommand<WebsocketClientEventMessage> = {
+                    sender: 'asbplayer-video', // doit matcher handler.sender
+                    message: {
+                        command: 'websocket-client-event',
+                        body: {event: 'subtitles-status', data: 'loaded'}
+                    },
+                    src: this.video.src
+                };
+                browser.runtime.sendMessage(command);
+                this.subtitleController.notification('info.subtitlesLoaded');
+
                 const withSyncedAsbplayerOnly = syncWithAsbplayerId === undefined;
                 syncWithAsbplayerTab(withSyncedAsbplayerOnly, syncWithAsbplayerId);
                 break;

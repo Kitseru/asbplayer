@@ -65,6 +65,7 @@ import ClearCopyHistoryHandler from '@/handlers/asbplayerv2/clear-copy-history-h
 import SaveCopyHistoryHandler from '@/handlers/asbplayerv2/save-copy-history-handler';
 import PageConfigHandler from '@/handlers/asbplayerv2/page-config-handler';
 import EncodeMp3Handler from '@/handlers/video/encode-mp3-handler';
+import WebsocketSendHandler from '@/handlers/websocket-send-handler';
 
 export default defineBackground(() => {
     if (!isFirefoxBuild) {
@@ -126,6 +127,7 @@ export default defineBackground(() => {
 
     const handlers: CommandHandler[] = [
         new VideoHeartbeatHandler(tabRegistry),
+        new WebsocketSendHandler(),
         new RecordMediaHandler(audioRecorder, imageCapturer, cardPublisher, settings),
         new RerecordMediaHandler(settings, audioRecorder, cardPublisher),
         new StartRecordingMediaHandler(audioRecorder, imageCapturer, cardPublisher, settings),

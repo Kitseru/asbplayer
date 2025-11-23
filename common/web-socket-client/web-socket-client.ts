@@ -40,6 +40,22 @@ export interface SeekTimestampCommand {
     };
 }
 
+export interface OffsetSubtitlesCommand {
+    command: 'offset-subtitles';
+    messageId: string;
+    body: {
+        value: number;
+    };
+}
+
+export interface OffsetSubtitlesToCloseTimestampCommand {
+    command: 'offset-subtitles-to-close-timestamp';
+    messageId: string;
+    body: {
+        direction: 'forward' | 'backward';
+    };
+}
+
 export class WebSocketClient {
     private _socket?: WebSocket;
     private _pingInterval?: NodeJS.Timeout;
@@ -50,6 +66,8 @@ export class WebSocketClient {
     onMineSubtitle?: (command: MineSubtitleCommand) => Promise<boolean>;
     onLoadSubtitles?: (command: LoadSubtitlesCommand) => Promise<void>;
     onSeekTimestamp?: (command: SeekTimestampCommand) => Promise<void>;
+    onOffsetSubtitles?: (command: OffsetSubtitlesCommand) => Promise<void>;
+    onOffsetSubtitlesToCloseTimestamp?: (command: OffsetSubtitlesToCloseTimestampCommand) => Promise<void>;
 
     get socket() {
         return this._socket;
@@ -130,6 +148,25 @@ export class WebSocketClient {
                             body: {},
                         };
                         this._socket?.send(JSON.stringify(response));
+                    } else if (payload.command === 'offset-subtitles') {
+                            const messageId = payload.messageId;
+                            await this.onOffsetSubtitles?.(payload);
+                            const response: Response<{}> = {
+                                command: 'response',
+                                messageId,
+                                body: {},
+                            };
+                        this._socket?.send(JSON.stringify(response));
+                    }
+                    else if (payload.command === 'offset-subtitles-to-close-timestamp') {
+                        const messageId = payload.messageId;
+                        await this.onOffsetSubtitlesToCloseTimestamp?.(payload);
+                        const response: Response<{}> = {
+                            command: 'response',
+                            messageId,
+                            body: {},
+                        };
+                        this._socket?.send(JSON.stringify(response));
                     }
                 }
             };
@@ -199,5 +236,7 @@ export class WebSocketClient {
         this.onMineSubtitle = undefined;
         this.onSeekTimestamp = undefined;
         this.onLoadSubtitles = undefined;
+        this.onOffsetSubtitles = undefined;
+        this.onOffsetSubtitlesToCloseTimestamp = undefined;
     }
 }

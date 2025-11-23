@@ -756,3 +756,11 @@ export interface DeleteCopyHistoryMessage extends MessageWithId {
 export interface ClearCopyHistoryMessage extends MessageWithId {
     readonly command: 'clear-copy-history';
 }
+
+export interface WebsocketClientEventMessage extends Message {
+    readonly command: 'websocket-client-event';
+    readonly body: {
+        event: string;
+        data?: any;
+    };
+}

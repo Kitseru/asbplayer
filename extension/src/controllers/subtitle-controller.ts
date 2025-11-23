@@ -574,6 +574,20 @@ export default class SubtitleController {
         });
     }
 
+    offsetToNextSubtitle(): void {
+        const currentTimeMs = this.video.currentTime * 1000;
+        const nextSubtitle = this.subtitles.find(s => s.start > currentTimeMs);
+        const offset = nextSubtitle ? currentTimeMs - nextSubtitle.start : 0;
+        this.offset(offset);
+    }
+
+    offsetToPreviousSubtitle(): void {
+        const currentTimeMs = this.video.currentTime * 1000;
+        const previousSubtitle = [...this.subtitles].reverse().find(s => s.start < currentTimeMs);
+        const offset = previousSubtitle ? currentTimeMs - previousSubtitle.start : 0;
+        this.offset(offset);
+    }
+
     private _computeOffset(): number {
         if (!this.subtitles || this.subtitles.length === 0) {
             return 0;

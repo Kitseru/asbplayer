@@ -140,8 +140,46 @@ export const bindWebSocketClient = async (settings: SettingsProvider, tabRegistr
             resolve();
         });
     };
+    client.onOffsetSubtitles = async ({ body: { value } }) => {
+        return new Promise<void>((resolve) => {
+            tabRegistry.publishCommandToVideoElements((videoElement) => {
+                return {
+                    sender: 'asbplayer-extension-to-video',
+                    message: {
+                        command: 'offset',
+                        value
+                    },
+                    src: videoElement.src,
+                };
+            });
+
+            resolve();
+        });
+    };
+    client.onOffsetSubtitlesToCloseTimestamp = async ({ body: { direction } }) => {
+        return new Promise<void>((resolve) => {
+            tabRegistry.publishCommandToVideoElements((videoElement) => {
+                const command =
+                    direction === 'forward'
+                        ? 'offset-subtitles-to-next-timestamp'
+                        : 'offset-subtitles-to-previous-timestamp';
+
+                return {
+                    sender: 'asbplayer-extension-to-video',
+                    message: { command },
+                    src: videoElement.src,
+                };
+            });
+
+            resolve();
+        });
+    };
 };
 
 export const unbindWebSocketClient = () => {
     client?.unbind();
 };
+
+export const getWebSocketClient = () => {
+    return client;
+}
