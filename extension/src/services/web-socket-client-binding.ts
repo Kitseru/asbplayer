@@ -207,7 +207,3 @@ export const bindWebSocketClient = async (settings: SettingsProvider, tabRegistr
 export const unbindWebSocketClient = () => {
     client?.unbind();
 };
-
-export const getWebSocketClient = () => {
-    return client;
-}
