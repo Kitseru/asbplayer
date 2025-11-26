@@ -5,7 +5,9 @@ import {
     Command,
     ExtensionToAsbPlayerCommandTabsCommand,
     ExtensionToVideoCommand,
+    SuccessResponse,
     Message,
+    MessageWithId,
     VideoHeartbeatMessage,
     VideoTabModel,
 } from '@project/common';
@@ -422,22 +424,44 @@ export default class TabRegistry {
     }
 
     async publishCommandToVideoElements<T extends Message>(
-        commandFactory: (videoElement: VideoElement) => ExtensionToVideoCommand<T> | undefined
-    ) {
+        commandFactory: (videoElement: VideoElement) => ExtensionToVideoCommand<T> | undefined,
+        options?: { waitResponse?: boolean, timeoutMs?: number }
+    ): Promise<SuccessResponse[] | void> {
+        const { waitResponse = false, timeoutMs = 2000 } = options ?? {};
         const videoElements = await this._videoElements();
+
+        const responses: SuccessResponse[] = [];
 
         for (const id in videoElements) {
             const videoElement = videoElements[id];
             const tabId = videoElement.tab.id;
+            if (typeof tabId === 'undefined') continue;
 
-            if (typeof tabId !== 'undefined') {
-                const command = commandFactory(videoElement);
+            const command = commandFactory(videoElement);
+            if (!command) continue;
 
-                if (command !== undefined) {
-                    browser.tabs.sendMessage(tabId, command);
+
+            if (waitResponse) {
+                try {
+                    const response: SuccessResponse = await Promise.race([
+                        browser.tabs.sendMessage(tabId, command),
+                        new Promise<SuccessResponse>((_, reject) =>
+                            setTimeout(() => reject(new Error('Message response timeout')), timeoutMs)
+                        )
+                    ]) as SuccessResponse;
+
+                    console.log("Response:", response);
+                    responses.push(response);
+                } catch (err) {
+                    console.warn(`No response from tab ${tabId}:`, err);
                 }
+            } else {
+                browser.tabs.sendMessage(tabId, command);
             }
         }
+
+        if (waitResponse) return responses;
+        return;
     }
 
     async publishCommandToVideoElementTabs<T extends Message>(

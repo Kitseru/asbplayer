@@ -3,6 +3,7 @@ import {
     ForegroundToExtensionCommand,
     OpenAsbplayerSettingsMessage,
     SubtitleFile,
+    SuccessResponse,
     TabToExtensionCommand,
     VideoSelectModeConfirmMessage,
 } from '@project/common';
@@ -71,6 +72,15 @@ export default class VideoSelectController {
                 case 'subtitles':
                     this._hideUi();
                     break;
+                case 'load-subtitles-with-response':
+                    if (!this._bindings || this._bindings.length === 0) {
+                        return false;
+                    }
+                    this.loadSubtitlesForVideo(request.src, request.message.subtitleFiles)
+                        .then((response: SuccessResponse) => {
+                            sendResponse(response);
+                        });
+                    return true;
                 default:
                 // ignore
             }
@@ -120,6 +130,19 @@ export default class VideoSelectController {
             this._showUi(openedFromMiningCommand);
             this._subtitleFiles = subtitleFiles;
         }
+    }
+
+    private async loadSubtitlesForVideo(targetSrc: string, subtitleFiles: SubtitleFile[]) {
+        const binding = this._bindings.find((b) => b.video.src === targetSrc);
+            
+        if (!binding || !binding.subscribed) {
+            return { success: false };
+        }
+
+        await binding.loadSubtitles(await this._filesForSubtitleFiles(subtitleFiles), false);
+        const loaded = binding.subtitleController.subtitles.length > 0;
+        
+        return { success: loaded };
     }
 
     private async _showUi(openedFromMiningCommand: boolean) {

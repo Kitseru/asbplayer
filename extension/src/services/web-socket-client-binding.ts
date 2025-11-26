@@ -15,6 +15,7 @@ import {
     Message,
     PostMineAction,
     ToggleVideoSelectMessage,
+    LoadSubtitlesWithResponseMessage,
 } from '@project/common';
 
 let client: WebSocketClient | undefined;
@@ -28,7 +29,7 @@ export const bindWebSocketClient = async (settings: SettingsProvider, tabRegistr
     }
 
     client = new WebSocketClient();
-    client.bind(url);
+    client.bind(url, true);
     client.onMineSubtitle = async ({
         body: { fields: receivedFields, postMineAction: receivedPostMineAction },
     }: MineSubtitleCommand) => {
@@ -111,17 +112,44 @@ export const bindWebSocketClient = async (settings: SettingsProvider, tabRegistr
         });
     };
     client.onLoadSubtitles = async (command: LoadSubtitlesCommand) => {
-        const { files: subtitleFiles } = command.body;
-        const toggleVideoSelectCommand: ExtensionToVideoCommand<ToggleVideoSelectMessage> = {
-            sender: 'asbplayer-extension-to-video',
-            message: {
-                command: 'toggle-video-select',
-                subtitleFiles,
+        const { files: subtitleFiles, currentTabOnly = false, waitConfirmation = false } = command.body;
+
+        console.log("LoadSubtitles command received. currentTabOnly: " + currentTabOnly + " waitConfirmation: " + waitConfirmation);
+
+        const activeTabs = await browser.tabs.query({ active: true, currentWindow: true });
+        const publishResult = await tabRegistry.publishCommandToVideoElements<LoadSubtitlesWithResponseMessage | ToggleVideoSelectMessage>(
+            (videoElement) => {
+                if (currentTabOnly && !activeTabs.find(t => t.id === videoElement.tab.id)) {
+                    return undefined;
+                }
+
+                if (waitConfirmation) {
+                    const loadCommand: ExtensionToVideoCommand<LoadSubtitlesWithResponseMessage> = {
+                        sender: 'asbplayer-extension-to-video',
+                        message: {
+                            command: 'load-subtitles-with-response',
+                            subtitleFiles,
+                        },
+                        src: videoElement.src,
+                    };
+                    return loadCommand;
+                } else {
+                    const toggleCommand: ExtensionToVideoCommand<ToggleVideoSelectMessage> = {
+                        sender: 'asbplayer-extension-to-video',
+                        message: {
+                            command: 'toggle-video-select',
+                            subtitleFiles,
+                        },
+                        src: videoElement.src,
+                    };
+                    return toggleCommand;
+                }
             },
-        };
-        tabRegistry.publishCommandToVideoElementTabs((tab): ExtensionToVideoCommand<Message> | undefined => {
-            return toggleVideoSelectCommand;
-        });
+            { waitResponse: waitConfirmation }
+        );
+
+        if (!waitConfirmation) return true;
+        return publishResult?.some(r => r.success === true) ?? false;
     };
     client.onSeekTimestamp = async ({ body: { timestamp } }: SeekTimestampCommand) => {
         return new Promise<void>((resolve) => {

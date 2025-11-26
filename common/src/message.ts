@@ -33,6 +33,11 @@ export interface MessageWithId extends Message {
     readonly messageId: string;
 }
 
+export interface SuccessResponse {
+    success: boolean 
+    message?: string
+};
+
 export interface AsbplayerInstance {
     id: string;
     tabId?: number;
@@ -257,6 +262,11 @@ export interface ToggleVideoSelectMessage extends Message {
     readonly command: 'toggle-video-select';
     readonly fromAsbplayerId?: string;
     readonly subtitleFiles?: SubtitleFile[];
+}
+
+export interface LoadSubtitlesWithResponseMessage extends Message {
+    readonly command: 'load-subtitles-with-response';
+    readonly subtitleFiles: SubtitleFile[];
 }
 
 export interface ShowAnkiUiAfterRerecordMessage extends Message {

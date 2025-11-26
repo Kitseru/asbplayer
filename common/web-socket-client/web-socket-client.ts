@@ -7,6 +7,14 @@ export interface MineSubtitleCommand {
     };
 }
 
+interface AuthenticationInfo {
+    command: 'hello';
+    body: {
+        client: 'asbplayer';
+    };
+
+}
+
 interface Response<T> {
     command: 'response';
     messageId: string;
@@ -17,7 +25,9 @@ interface MineSubtitleResponseBody {
     published: boolean;
 }
 
-interface LoadSubtitlesResponseBody {}
+interface LoadSubtitlesResponseBody {
+    //loaded: boolean;
+}
 
 export interface SubtitleFile {
     base64: string;
@@ -28,7 +38,9 @@ export interface LoadSubtitlesCommand {
     command: 'load-subtitles';
     messageId: string;
     body: {
-        files?: SubtitleFile[];
+        files: SubtitleFile[];
+        currentTabOnly?: boolean;
+        waitConfirmation?: boolean;
     };
 }
 
@@ -64,16 +76,17 @@ export class WebSocketClient {
     private _pingPromises: { resolve: (value: unknown) => void; reject: (error: any) => void }[] = [];
     private _connectPromise?: { resolve: (value: unknown) => void; reject: (error: any) => void };
     onMineSubtitle?: (command: MineSubtitleCommand) => Promise<boolean>;
-    onLoadSubtitles?: (command: LoadSubtitlesCommand) => Promise<void>;
+    onLoadSubtitles?: (command: LoadSubtitlesCommand) => Promise<boolean>;
     onSeekTimestamp?: (command: SeekTimestampCommand) => Promise<void>;
     onOffsetSubtitles?: (command: OffsetSubtitlesCommand) => Promise<void>;
     onOffsetSubtitlesToCloseTimestamp?: (command: OffsetSubtitlesToCloseTimestampCommand) => Promise<void>;
+    //Other callbacks
 
     get socket() {
         return this._socket;
     }
 
-    async bind(url: string) {
+    async bind(url: string, persistant: boolean = false) {
         if (this._pingInterval) {
             clearInterval(this._pingInterval);
         }
@@ -90,16 +103,16 @@ export class WebSocketClient {
                 }
 
                 this._pingPromises = [];
-                this._connect(url);
+                this._connect(url, persistant);
             } else {
                 this.ping().catch(console.info);
             }
         }, 10000);
 
-        await this._connect(url);
+        await this._connect(url, persistant);
     }
 
-    private async _connect(url: string) {
+    private async _connect(url: string, persistant: boolean = false) {
         this._disconnect();
 
         if (!url) {
@@ -118,7 +131,7 @@ export class WebSocketClient {
                     }
 
                     this._pingPromises = [];
-                } else {
+                } else if (persistant === true) {
                     const payload = JSON.parse(event.data);
 
                     if (payload.command === 'mine-subtitle') {
@@ -132,11 +145,11 @@ export class WebSocketClient {
                         this._socket?.send(JSON.stringify(response));
                     } else if (payload.command === 'load-subtitles') {
                         const messageId = payload.messageId;
-                        await this.onLoadSubtitles?.(payload);
+                        const success = (await this.onLoadSubtitles?.(payload)) ?? false;
                         const response: Response<LoadSubtitlesResponseBody> = {
                             command: 'response',
                             messageId,
-                            body: {},
+                            body: { success },
                         };
                         this._socket?.send(JSON.stringify(response));
                     } else if (payload.command === 'seek-timestamp') {
@@ -171,7 +184,8 @@ export class WebSocketClient {
                 }
             };
             socket.onclose = (event) => {
-                console.log(`Socket closed - reason: ${event.reason}`);
+                console.trace();
+                console.log("Socket closed - reason: " + event.code);
                 this._connectPromise?.reject('Socket closed');
                 this._connectPromise = undefined;
             };
@@ -181,6 +195,18 @@ export class WebSocketClient {
                 this._connectPromise = undefined;
             };
             socket.onopen = () => {
+                if(persistant == true) {
+                    console.log("Sending Hello Message");
+                    const auth: AuthenticationInfo = {
+                        command: 'hello',
+                        body: {
+                            client: 'asbplayer'
+                        },
+                    };
+
+                    socket.send(JSON.stringify(auth));
+                }
+
                 this.ping().catch(console.error);
                 this._connectPromise?.resolve(undefined);
                 this._connectPromise = undefined;
